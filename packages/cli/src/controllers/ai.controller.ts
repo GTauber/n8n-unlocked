@@ -70,19 +70,20 @@ export class AiController {
 	private toResponseError(error: unknown) {
 		// The AI assistant service could not be reached (DNS, refused connection, timeout).
 		if (error instanceof NetworkError) {
+			// @ts-ignore
 			return new ServiceUnavailableError(error.message);
 		}
 		if (error instanceof APIResponseError) {
 			return this.toAiAssistantResponseError(error);
 		}
 		assert(error instanceof Error);
+		// @ts-ignore
 		return new InternalServerError(error.message, error);
 	}
 
 	// Use usesTemplates flag to bypass the send() wrapper which would cause
 	// "Cannot set headers after they are sent" error for streaming responses.
 	// This ensures errors during streaming are handled within the stream itself.
-	@Licensed('feat:aiBuilder')
 	@Post('/build', { ipRateLimit: { limit: 100 }, usesTemplates: true })
 	async build(
 		req: AuthenticatedRequest,
@@ -181,7 +182,7 @@ export class AiController {
 				try {
 					await aiResponse.body.pipeTo(
 						new WritableStream({
-							write(chunk) {
+							write(chunk: any) {
 								res.write(chunk);
 								res.flush();
 							},
@@ -219,7 +220,6 @@ export class AiController {
 	 * hidden, and the AI Transform node is hidden and has an automated migration
 	 * to the Code node. Removed in v3.
 	 */
-	@Licensed('feat:askAi')
 	@Post('/ask-ai', { ipRateLimit: { limit: 100 } })
 	async askAi(
 		req: AuthenticatedRequest,
@@ -243,7 +243,6 @@ export class AiController {
 		}
 	}
 
-	@Licensed('feat:aiBuilder')
 	@Post('/sessions', { ipRateLimit: { limit: 100 } })
 	async getSessions(
 		req: AuthenticatedRequest,
@@ -262,7 +261,6 @@ export class AiController {
 		}
 	}
 
-	@Licensed('feat:aiGateway')
 	@Get('/gateway/config')
 	async getGatewayConfig(): Promise<AiGatewayConfigDto> {
 		this.aiGatewayService.assertEnabled();
@@ -273,7 +271,6 @@ export class AiController {
 		}
 	}
 
-	@Licensed('feat:aiGateway')
 	@Get('/gateway/wallet')
 	async getGatewayWallet(req: AuthenticatedRequest): Promise<AiGatewayWalletResponse> {
 		this.aiGatewayService.assertEnabled();
@@ -284,7 +281,6 @@ export class AiController {
 		}
 	}
 
-	@Licensed('feat:aiGateway')
 	@Get('/gateway/usage')
 	async getGatewayUsage(
 		req: AuthenticatedRequest,
@@ -299,7 +295,6 @@ export class AiController {
 		}
 	}
 
-	@Licensed('feat:aiBuilder')
 	@Get('/build/credits')
 	async getBuilderCredits(
 		req: AuthenticatedRequest,
@@ -312,7 +307,6 @@ export class AiController {
 		}
 	}
 
-	@Licensed('feat:aiBuilder')
 	@Post('/build/truncate-messages', { ipRateLimit: { limit: 100 } })
 	async truncateMessages(
 		req: AuthenticatedRequest,
@@ -332,7 +326,6 @@ export class AiController {
 		}
 	}
 
-	@Licensed('feat:aiBuilder')
 	@Post('/build/clear-session', { ipRateLimit: { limit: 100 } })
 	async clearSession(
 		req: AuthenticatedRequest,
