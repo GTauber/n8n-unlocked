@@ -51,6 +51,38 @@ function isMainPlanFlag(entitlement: TEntitlement): boolean | undefined {
 	return typeof terms.isMainPlan === 'boolean' ? terms.isMainPlan : undefined;
 }
 
+/**
+ * Unlocked build. When true, the license manager never starts, so no call goes to the
+ * license server, and every feature reads as licensed. Set to false to restore the SDK path.
+ */
+const LICENSE_CHECKS_DISABLED: boolean = true;
+
+/**
+ * Flags that must stay off in the unlocked build. Turning them on would remove a
+ * capability (`apiDisabled`), show a banner, or call n8n-hosted billing services.
+ */
+const LOCKED_FEATURES: ReadonlySet<BooleanLicenseFeature> = new Set<BooleanLicenseFeature>([
+	LICENSE_FEATURES.API_DISABLED,
+	LICENSE_FEATURES.SHOW_NON_PROD_BANNER,
+	LICENSE_FEATURES.AI_CREDITS,
+	LICENSE_FEATURES.AI_GATEWAY,
+	LICENSE_FEATURES.AI_GATEWAY_CLOUD_UBB,
+	LICENSE_FEATURES.AI_ASSISTANT_CLOUD_UBB_ENTITLEMENT,
+]);
+
+/** Values the unlocked build reports. A missing key makes the caller use its own default. */
+const UNLOCKED_VALUES: FeatureReturnType = {
+	planName: 'Enterprise',
+	[LICENSE_QUOTAS.USERS_LIMIT]: UNLIMITED_LICENSE_QUOTA,
+	[LICENSE_QUOTAS.TRIGGER_LIMIT]: UNLIMITED_LICENSE_QUOTA,
+	[LICENSE_QUOTAS.VARIABLES_LIMIT]: UNLIMITED_LICENSE_QUOTA,
+	[LICENSE_QUOTAS.WORKFLOW_HISTORY_PRUNE_LIMIT]: UNLIMITED_LICENSE_QUOTA,
+	[LICENSE_QUOTAS.TEAM_PROJECT_LIMIT]: UNLIMITED_LICENSE_QUOTA,
+	[LICENSE_QUOTAS.WORKFLOWS_WITH_EVALUATION_LIMIT]: UNLIMITED_LICENSE_QUOTA,
+	[LICENSE_QUOTAS.INSIGHTS_MAX_HISTORY_DAYS]: UNLIMITED_LICENSE_QUOTA,
+	[LICENSE_QUOTAS.AI_CREDITS]: 0,
+};
+
 @Service()
 export class License implements LicenseProvider {
 	private manager: LicenseManager | undefined;
@@ -83,6 +115,11 @@ export class License implements LicenseProvider {
 		}
 		if (this.isShuttingDown) {
 			this.logger.warn('License manager already shutting down');
+			return;
+		}
+
+		if (LICENSE_CHECKS_DISABLED) {
+			this.logger.debug('License checks are disabled, all features are unlocked');
 			return;
 		}
 
@@ -316,14 +353,17 @@ export class License implements LicenseProvider {
 	}
 
 	isLicensed(feature: BooleanLicenseFeature) {
+		if (LICENSE_CHECKS_DISABLED) return !LOCKED_FEATURES.has(feature);
 		return this.manager?.hasFeatureEnabled(feature) ?? false;
 	}
 
 	isCertValid(): boolean {
+		if (LICENSE_CHECKS_DISABLED) return true;
 		return this.manager?.isValid(false /* useLogger */) ?? false;
 	}
 
 	hasFeatureInCert(feature: BooleanLicenseFeature): boolean {
+		if (LICENSE_CHECKS_DISABLED) return !LOCKED_FEATURES.has(feature);
 		return this.manager?.hasFeatureEnabled(feature, false) ?? false;
 	}
 
@@ -447,6 +487,7 @@ export class License implements LicenseProvider {
 	}
 
 	getValue<T extends keyof FeatureReturnType>(feature: T): FeatureReturnType[T] {
+		if (LICENSE_CHECKS_DISABLED) return UNLOCKED_VALUES[feature];
 		return this.manager?.getFeatureValue(feature) as FeatureReturnType[T];
 	}
 
@@ -521,6 +562,8 @@ export class License implements LicenseProvider {
 	 * started later (such as Registered Community) would otherwise rename a paid plan.
 	 */
 	getPlanName(): string {
+		if (LICENSE_CHECKS_DISABLED) return UNLOCKED_VALUES.planName ?? 'Enterprise';
+
 		const mergedPlanName = this.getValue('planName');
 		// Empty when the cert is missing, invalid or expired; the entitlements alone can't tell.
 		if (mergedPlanName === undefined) return 'Community';
