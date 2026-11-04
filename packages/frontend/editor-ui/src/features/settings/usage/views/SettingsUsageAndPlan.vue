@@ -56,6 +56,9 @@ const eulaUrl = ref('');
 // must remove that key from the URL when the flow ends.
 const activationFromUrl = ref(false);
 
+// The unlocked build has no license to activate and no billing portal to manage it.
+const showLicenseButtons = false;
+
 const canUserActivateLicense = computed(() =>
 	hasPermission(['rbac'], { rbac: { scope: 'license:manage' } }),
 );
@@ -302,7 +305,7 @@ const openCommunityRegisterModal = () => {
 
 			<N8nInfoTip>{{ locale.baseText('settings.usageAndPlan.activeWorkflows.hint') }}</N8nInfoTip>
 
-			<div :class="$style.buttons">
+			<div v-if="showLicenseButtons" :class="$style.buttons">
 				<N8nButton
 					variant="outline"
 					v-if="canUserActivateLicense"
